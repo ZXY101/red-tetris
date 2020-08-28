@@ -1,10 +1,7 @@
-const express = require('express');
 const http = require("http");
 const {v4} = require("uuid");
 const webSocketServer = require("websocket").server;
-
 const httpServer = http.createServer();
-const app = express();
 
 httpServer.listen(9090, () => console.log("Listening.. on 9090"));
 
