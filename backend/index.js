@@ -23,13 +23,15 @@ wsServer.on("request", request => {
 		if (result.method === "create"){
 			const clientId = result.clientId;
 			const gameId = v4();
+			const url = `http://localhost:3000/?game=${gameId}`
 			games[gameId] = {
 				id: gameId,
-				clients: [],
+				clients: [{clientId: clientId}],
 			};
 
 			const payLoad = {
 				method: "create",
+				url: url,
 				game: games[gameId],
 			};
 
@@ -38,6 +40,29 @@ wsServer.on("request", request => {
 			const con = clients[clientId].connection;
 			con.send(JSON.stringify(payLoad));
 		}
+
+		if (result.method === "join"){
+			const clientId = result.clientId;
+			const gameId = result.gameId;
+			const game = games[gameId];
+
+			game.clients.push({
+				"clientId": clientId,
+			});
+
+			const payLoad = {
+				method: "join",
+				game: game,
+			}
+
+			//Tell all clients that someone joined
+			console.log(game);
+
+			game.clients.forEach(c => {
+				clients[c.clientId].connection.send(JSON.stringify(payLoad));
+			});
+		}
+
 	});
 	// Generate new clientId
 	const clientId = v4();

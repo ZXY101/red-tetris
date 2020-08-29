@@ -8,7 +8,7 @@ export default function Display({ gameOver, text}) {
 					{text}
 				</div>) :
 				 (
-				<div className="nes-container is-rounded is-error" style={{width: "200px", marginTop: "10px"}}>
+				<div className="nes-container is-rounded is-error" style={{width: "200px", marginTop: "10px", background: "red"}}>
 					{text}
 				</div> 
 				 )

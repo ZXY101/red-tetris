@@ -18,9 +18,11 @@ import Home from './Home'
 
 export default function Tetris() {
 	const ws = new WebSocket("ws://localhost:9090");
+
 	const [clientId, setclientId] = useState(null);
 	const [gameId, setgameId] = useState(null);
 	const [gameCreated, setgameCreated] = useState(false);
+	const [players, setplayers] = useState(1);
 
 	const [dropTime, setDropTime] = useState(null);
 	const [gameOver, setGameOver] = useState(false);
@@ -28,6 +30,9 @@ export default function Tetris() {
 	const [player, updatePlayerPos, resetPlayer, playerRotate, playerFall] = usePlayer();
 	const [stage, setStage, rowsCleared] = useStage(player, resetPlayer);
 	const [score, setScore, rows, setRows, level, setLevel] = useGameStatus(rowsCleared)
+
+
+
 
 	const movePlayer = (dir) =>{
 		if (!checkCollision(player, stage, {x: dir, y: 0}))
@@ -108,7 +113,7 @@ export default function Tetris() {
 	useInterval (() => {
 		drop();
 	}, dropTime)
-
+	
 	useEffect(() => {
 		ws.onmessage = message => {
 			const response = JSON.parse(message.data);
@@ -121,31 +126,60 @@ export default function Tetris() {
 				setgameId(response.game.id);
 				setgameCreated(true);
 				console.log('Game successfully created ' + response.game.id);
+				console.log('Game successfully created ' + response.url);
+			}
+
+			if (response.method === "join"){
+				setgameCreated(true);
+				setplayers(players + 1)
+				console.log('Player 2 Joined Game: ' + response.game.id);
 			}
 		};
+
+		
 	}, [ws.onmessage])
+
+	useEffect(() => {
+		const search = window.location.search;
+		const params = new URLSearchParams(search);
+		const id = params.get('game');
+		
+		ws.onopen = function() {
+			if (id && clientId){
+				const payLoad = {
+					method: "join",
+					clientId: clientId,
+					gameId: id,
+				};
+				ws.send(JSON.stringify(payLoad));
+			}
+		}
+	}, [clientId])
+
 
 	return (
 		<Fragment>
 			{!gameCreated ?
 			<Home ws={ws} clientId={clientId} createGame={createGame}/> :
 			<StyledTetrisWrapper role="button" tabIndex="0" onKeyDown={e => move(e)} onKeyUp={keyUp}>
-				<StyledTetris>
-					<Stage stage={stage}/>
-					<Stage stage={stage}/>
-					<aside>
-						{gameOver ? (
-							<Display gameOver={gameOver} text="Game Over"/>
-							) :
-							<div>
-								<Display text={`Score: ${score}`}/>
-								<Display text={`Rows: ${rows}`}/>
-								<Display text={`Level: ${level}`}/>
-							</div>
-						}
-						<StartButton callBack={startGame}/>
-					</aside>
-				</StyledTetris>
+				<div className="nes-container is-rounded is-centered" style={{margin: "10px"}}>
+					<StyledTetris>
+						<Stage stage={stage} player={1}/>
+						{players > 1 ? <Stage stage={stage} player={2}/> : null}
+						<aside>
+							{gameOver ? (
+								<Display gameOver={gameOver} text="Game Over"/>
+								) :
+								<div>
+									<Display text={`Score: ${score}`}/>
+									<Display text={`Rows: ${rows}`}/>
+									<Display text={`Level: ${level}`}/>
+								</div>
+							}
+							<StartButton callBack={startGame}/>
+						</aside>
+					</StyledTetris>
+				</div>
 			</StyledTetrisWrapper>
 	}
 		</Fragment>
