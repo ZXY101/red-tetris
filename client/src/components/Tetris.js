@@ -1,4 +1,4 @@
-import React, {useState, useEffect, Fragment} from 'react'
+import React, {useState, useEffect, useRef, Fragment} from 'react'
 
 import {createStage, checkCollision} from '../helpers/gameHelpers'
 import {StyledTetrisWrapper} from './styles/StyledTetris'
@@ -21,6 +21,7 @@ export default function Tetris() {
 
 	const [clientId, setclientId] = useState(null);
 	const [gameId, setgameId] = useState(null);
+	const [gameUrl, setgameUrl] = useState(null);
 	const [gameCreated, setgameCreated] = useState(false);
 	const [players, setplayers] = useState(1);
 
@@ -125,6 +126,7 @@ export default function Tetris() {
 			if (response.method === "create"){
 				setgameId(response.game.id);
 				setgameCreated(true);
+				setgameUrl(response.url);
 				console.log('Game successfully created ' + response.game.id);
 				console.log('Game successfully created ' + response.url);
 			}
@@ -156,6 +158,18 @@ export default function Tetris() {
 		}
 	}, [clientId])
 
+	const [copySuccess, setCopySuccess] = useState('');
+	const textAreaRef = useRef(null);
+
+	const copyToClipboard = (e) => {
+		textAreaRef.current.select();
+		document.execCommand('copy');
+		// This is just personal preference.
+		// I prefer to not show the whole text area selected.
+		e.target.focus();
+		setCopySuccess('Copied!');
+	};
+
 
 	return (
 		<Fragment>
@@ -165,7 +179,16 @@ export default function Tetris() {
 				<div className="nes-container is-rounded is-centered" style={{margin: "10px"}}>
 					<StyledTetris>
 						<Stage stage={stage} player={1}/>
-						{players > 1 ? <Stage stage={stage} player={2}/> : null}
+						{players > 1 ? <Stage stage={stage} player={2}/> : 
+						document.queryCommandSupported('copy') &&
+						<div className="nes-container is-rounded is-centered">
+							<label for="name_field">Multiplayer Link</label>
+							<div class="nes-field is-inline" style={{margin: "10px"}}>
+								<input type="text" id="name_field"  ref={textAreaRef} class="nes-input" value={gameUrl}/>
+								<button type="button" class="nes-btn is-primary" onClick={copyToClipboard} >Copy</button> 
+							</div>
+							{copySuccess}
+						</div>}
 						<aside>
 							{gameOver ? (
 								<Display gameOver={gameOver} text="Game Over"/>
@@ -176,6 +199,7 @@ export default function Tetris() {
 									<Display text={`Level: ${level}`}/>
 								</div>
 							}
+							
 							<StartButton callBack={startGame}/>
 						</aside>
 					</StyledTetris>
