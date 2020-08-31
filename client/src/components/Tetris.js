@@ -15,32 +15,31 @@ import Display from './Display'
 import StartButton from './StartButton'
 import Home from './Home'
 
+export default function Tetris({ws}) {
 
-export default function Tetris() {
-	const ws = new WebSocket("ws://localhost:9090");
-
-	const [clientId, setclientId] = useState(null);
-	const [gameId, setgameId] = useState(null);
-	const [gameUrl, setgameUrl] = useState(null);
+	const [clientId, setclientId] = useState("");
+	const [gameId, setgameId] = useState("");
+	const [gameUrl, setgameUrl] = useState("");
+	const [host, sethost] = useState("");
 	const [gameCreated, setgameCreated] = useState(false);
 	const [players, setplayers] = useState(1);
-
+	const [gameFull, setgameFull] = useState(false);
+	
 	const [dropTime, setDropTime] = useState(null);
 	const [gameOver, setGameOver] = useState(false);
-
+	
 	const [player, updatePlayerPos, resetPlayer, playerRotate, playerFall] = usePlayer();
 	const [stage, setStage, rowsCleared] = useStage(player, resetPlayer);
 	const [score, setScore, rows, setRows, level, setLevel] = useGameStatus(rowsCleared)
-
-
-
+	const [mainStage, setmainStage] = useState(stage);
+	const [otherStage, setotherStage] = useState(stage);
 
 	const movePlayer = (dir) =>{
 		if (!checkCollision(player, stage, {x: dir, y: 0}))
 			updatePlayerPos({x: dir, y: 0});
 	}
 
-	const startGame = () => {
+	const startGame = (asHost) => {
 		setStage(createStage());
 		setDropTime(1000);
 		resetPlayer();
@@ -48,6 +47,17 @@ export default function Tetris() {
 		setScore(0);
 		setRows(0);
 		setLevel(0);
+
+		if (asHost){
+			const payLoad = {
+				method: "start",
+				clientId: clientId,
+				gameId: gameId,
+				stage: stage,
+			};
+			ws.send(JSON.stringify(payLoad));
+		}
+
 	}
 	
 	const drop = () => {
@@ -127,36 +137,83 @@ export default function Tetris() {
 				setgameId(response.game.id);
 				setgameCreated(true);
 				setgameUrl(response.url);
+				sethost(response.game.host);
 				console.log('Game successfully created ' + response.game.id);
 				console.log('Game successfully created ' + response.url);
 			}
 
 			if (response.method === "join"){
 				setgameCreated(true);
-				setplayers(players + 1)
+				setplayers(players => players + 1)
 				console.log('Player 2 Joined Game: ' + response.game.id);
 			}
-		};
 
-		
-	}, [ws.onmessage])
+			if (response.method === "update"){
+				const game = response.game;
+
+				if (clientId === host.clientId){
+					game.clients.forEach(c => {
+						if (c.clientId !== clientId){
+							setotherStage(c.stage);
+						}
+					});
+				}else{
+					game.clients.forEach(c => {
+						if (c.clientId !== clientId){
+							setmainStage(c.stage);
+						}
+					});
+				}
+			}
+
+			if (response.method === "startGame" && clientId !== host.clientId){
+				setStage(createStage());
+				setDropTime(1000);
+				resetPlayer();
+				setGameOver(false);
+				setScore(0);
+				setRows(0);
+				setLevel(0);
+			}
+
+			if (response.method === "gameFull"){
+				console.log('Game is already full!');
+				setgameFull(true);
+			}
+		};
+	}, [ws.onmessage, host, clientId, setStage, setDropTime, resetPlayer, setGameOver, setScore, setRows,setLevel])
 
 	useEffect(() => {
+		
 		const search = window.location.search;
 		const params = new URLSearchParams(search);
 		const id = params.get('game');
-		
-		ws.onopen = function() {
-			if (id && clientId){
+		setgameId(id);
+
+		if (id && clientId){
+			// ws.onopen = function() {
 				const payLoad = {
 					method: "join",
 					clientId: clientId,
 					gameId: id,
+					stage: createStage(),
 				};
 				ws.send(JSON.stringify(payLoad));
-			}
+			// }
 		}
-	}, [clientId])
+	}, [clientId, ws])
+
+	useEffect(() => {
+		if (clientId && gameId){
+			const payLoad = {
+				method: "updateStage",
+				clientId: clientId,
+				gameId: gameId,
+				stage: stage,
+			};
+			ws.send(JSON.stringify(payLoad));
+		}
+	}, [stage, clientId, gameId, ws])
 
 	const [copySuccess, setCopySuccess] = useState('');
 	const textAreaRef = useRef(null);
@@ -174,33 +231,32 @@ export default function Tetris() {
 	return (
 		<Fragment>
 			{!gameCreated ?
-			<Home ws={ws} clientId={clientId} createGame={createGame}/> :
+			<Home ws={ws} clientId={clientId} createGame={createGame} gameFull={gameFull}/> :
 			<StyledTetrisWrapper role="button" tabIndex="0" onKeyDown={e => move(e)} onKeyUp={keyUp}>
 				<div className="nes-container is-rounded is-centered" style={{margin: "10px"}}>
 					<StyledTetris>
-						<Stage stage={stage} player={1}/>
-						{players > 1 ? <Stage stage={stage} player={2}/> : 
+						<Stage stage={clientId === host.clientId ? stage : mainStage} player={1}/>
+						{players > 1 ? <Stage stage={clientId === host.clientId ? otherStage : stage} player={2}/> : 
 						document.queryCommandSupported('copy') &&
 						<div className="nes-container is-rounded is-centered">
-							<label for="name_field">Multiplayer Link</label>
-							<div class="nes-field is-inline" style={{margin: "10px"}}>
-								<input type="text" id="name_field"  ref={textAreaRef} class="nes-input" value={gameUrl}/>
-								<button type="button" class="nes-btn is-primary" onClick={copyToClipboard} >Copy</button> 
+							<label htmlFor="name_field">Multiplayer Link</label>
+							<div className="nes-field is-inline" style={{margin: "10px"}}>
+								<input type="text" id="name_field"  ref={textAreaRef} className="nes-input" defaultValue={gameUrl}/>
+								<button type="button" className="nes-btn is-primary" onClick={copyToClipboard} >Copy</button> 
 							</div>
 							{copySuccess}
 						</div>}
 						<aside>
 							{gameOver ? (
 								<Display gameOver={gameOver} text="Game Over"/>
-								) :
+								) : null
+							}
 								<div>
 									<Display text={`Score: ${score}`}/>
 									<Display text={`Rows: ${rows}`}/>
 									<Display text={`Level: ${level}`}/>
 								</div>
-							}
-							
-							<StartButton callBack={startGame}/>
+							{clientId === host.clientId ? <StartButton callBack={()=>startGame(true)}/> : null}
 						</aside>
 					</StyledTetris>
 				</div>

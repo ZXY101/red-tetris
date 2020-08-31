@@ -1,5 +1,6 @@
 const http = require("http");
 const {v4} = require("uuid");
+const { client } = require("websocket");
 const webSocketServer = require("websocket").server;
 const httpServer = http.createServer();
 
@@ -26,7 +27,8 @@ wsServer.on("request", request => {
 			const url = `http://localhost:3000/?game=${gameId}`
 			games[gameId] = {
 				id: gameId,
-				clients: [{clientId: clientId}],
+				host: {clientId: clientId},
+				clients: [{clientId: clientId, stage: []}],
 			};
 
 			const payLoad = {
@@ -46,8 +48,18 @@ wsServer.on("request", request => {
 			const gameId = result.gameId;
 			const game = games[gameId];
 
+			if (game.clients.length >= 2){
+				const payLoad = {
+					method: "gameFull",
+					game: game,
+				}
+				clients[clientId].connection.send(JSON.stringify(payLoad));
+				return;
+			}
+
 			game.clients.push({
-				"clientId": clientId,
+				clientId: clientId,
+				stage: result.stage
 			});
 
 			const payLoad = {
@@ -56,11 +68,45 @@ wsServer.on("request", request => {
 			}
 
 			//Tell all clients that someone joined
-			console.log(game);
-
 			game.clients.forEach(c => {
 				clients[c.clientId].connection.send(JSON.stringify(payLoad));
 			});
+		}
+
+		if (result.method === "start"){
+			const gameId = result.gameId;
+			const game = games[gameId];
+			const stage = result.stage;
+
+			game.clients.forEach(c => {
+				c.stage = stage;
+			});
+			updateGameState(game);
+
+			const payLoad = {
+				method: "startGame",
+				game: game,
+			}
+			game.clients.forEach(c => {
+				clients[c.clientId].connection.send(JSON.stringify(payLoad));
+			});
+			
+			console.log('Game Started: \n', game);
+			
+		}
+
+		if (result.method === "updateStage"){
+			const clientId = result.clientId;
+			const gameId = result.gameId;
+			const stage = result.stage;
+			const game = games[gameId];
+
+			game.clients.forEach(c => {
+				if (c.clientId == clientId){
+					c.stage = stage;
+				}
+			});
+			games[gameId] = game;
 		}
 
 	});
@@ -78,4 +124,16 @@ wsServer.on("request", request => {
 	// Send back client connect
 	connection.send(JSON.stringify(payLoad));
 });
+
+function updateGameState(game){
+	const payLoad = {
+		method: "update",
+		game: game,
+	}
+
+	game.clients.forEach(c => {
+		clients[c.clientId].connection.send(JSON.stringify(payLoad));
+	})
+	setTimeout(() => updateGameState(game), 500)
+}
 
