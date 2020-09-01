@@ -8,6 +8,7 @@ httpServer.listen(9090, () => console.log("Listening.. on 9090"));
 
 const clients = {};
 const games = {};
+let tm
 
 const wsServer = new webSocketServer({
 	"httpServer": httpServer,
@@ -17,9 +18,13 @@ wsServer.on("request", request => {
 	const connection = request.accept(null, request.origin);
 	connection.on("open", () => console.log("Opened!"));
 	connection.on("close", () => console.log("Closed!"));
-
 	connection.on("message", message => {
 		const result = JSON.parse(message.utf8Data)
+
+		if(result.method === "pong"){
+			const clientId = result.clientId;
+			pong(clientId)
+		}
 
 		if (result.method === "create"){
 			const clientId = result.clientId;
@@ -37,8 +42,6 @@ wsServer.on("request", request => {
 				game: games[gameId],
 			};
 
-			console.log(`Game ${gameId} created by ${clientId}`);
-			
 			const con = clients[clientId].connection;
 			con.send(JSON.stringify(payLoad));
 		}
@@ -47,6 +50,8 @@ wsServer.on("request", request => {
 			const clientId = result.clientId;
 			const gameId = result.gameId;
 			const game = games[gameId];
+			if(!game)
+				return
 
 			if (game.clients.length >= 2){
 				const payLoad = {
@@ -90,9 +95,6 @@ wsServer.on("request", request => {
 			game.clients.forEach(c => {
 				clients[c.clientId].connection.send(JSON.stringify(payLoad));
 			});
-			
-			console.log('Game Started: \n', game);
-			
 		}
 
 		if (result.method === "updateStage"){
@@ -100,6 +102,8 @@ wsServer.on("request", request => {
 			const gameId = result.gameId;
 			const stage = result.stage;
 			const game = games[gameId];
+			if(!game)
+				return
 
 			game.clients.forEach(c => {
 				if (c.clientId == clientId){
@@ -107,6 +111,22 @@ wsServer.on("request", request => {
 				}
 			});
 			games[gameId] = game;
+		}
+
+		if (result.method === "gameOver"){
+			const clientId = result.clientId;
+			const gameId = result.gameId;
+			const game = games[gameId];
+
+			
+			const payLoad = {
+				method: "gameEnded",
+				loser: clientId,
+			}
+			
+			game.clients.forEach(c => {
+				clients[c.clientId].connection.send(JSON.stringify(payLoad));
+			});
 		}
 
 	});
@@ -121,6 +141,8 @@ wsServer.on("request", request => {
 		clientId: clientId,
 	};
 
+	const ti = setInterval(() => ping(clientId, ti), 3000);
+
 	// Send back client connect
 	connection.send(JSON.stringify(payLoad));
 });
@@ -130,10 +152,48 @@ function updateGameState(game){
 		method: "update",
 		game: game,
 	}
-
 	game.clients.forEach(c => {
 		clients[c.clientId].connection.send(JSON.stringify(payLoad));
 	})
 	setTimeout(() => updateGameState(game), 500)
 }
 
+function ping(clientId, ti){
+	payLoad = {
+		method: "ping"
+	}
+
+	clients[clientId].connection.send(JSON.stringify(payLoad));
+	tm = setTimeout(() =>{
+		clientDC(clientId, ti);
+	}, 5000);
+}
+
+
+
+
+function pong(clientId) {
+	clearTimeout(tm);
+}
+
+function clientDC(clientId, ti) {
+	console.log('No response from ', clientId);
+
+	for(const g of Object.keys(games)){
+		const game = games[g];
+		const payLoad = {
+			method: "playerLeft",
+		}
+
+		games[g].clients.forEach(c => {
+			if (clientId === c.clientId){
+				games[g].clients.forEach(c => {
+					clients[c.clientId].connection.send(JSON.stringify(payLoad));
+				});
+			}
+		})
+	}
+
+	clearInterval(ti)
+	clearTimeout(tm);
+}

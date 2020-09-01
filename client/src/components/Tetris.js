@@ -22,8 +22,11 @@ export default function Tetris({ws}) {
 	const [gameUrl, setgameUrl] = useState("");
 	const [host, sethost] = useState("");
 	const [gameCreated, setgameCreated] = useState(false);
+	const [gameStarted, setgameStarted] = useState(false);
 	const [players, setplayers] = useState(1);
 	const [gameFull, setgameFull] = useState(false);
+	const [playerLeft, setplayerLeft] = useState(false);
+	const [loser, setloser] = useState("");
 	
 	const [dropTime, setDropTime] = useState(null);
 	const [gameOver, setGameOver] = useState(false);
@@ -47,6 +50,7 @@ export default function Tetris({ws}) {
 		setScore(0);
 		setRows(0);
 		setLevel(0);
+		setgameStarted(true);
 
 		if (asHost){
 			const payLoad = {
@@ -72,6 +76,13 @@ export default function Tetris({ws}) {
 			if (player.pos.y < 1){
 				setGameOver(true);
 				setDropTime(null);
+				setgameStarted(false)
+				const payLoad = {
+					method: "gameOver",
+					clientId: clientId,
+					gameId: gameId,
+				};
+				ws.send(JSON.stringify(payLoad));
 			}
 			updatePlayerPos({x: 0, y: 0, collided: true})
 		}
@@ -128,9 +139,16 @@ export default function Tetris({ws}) {
 	useEffect(() => {
 		ws.onmessage = message => {
 			const response = JSON.parse(message.data);
+			if (response.method === "ping"){
+				const payLoad = {
+					method: "pong",
+					clientId: clientId,
+				};
+				ws.send(JSON.stringify(payLoad));
+			}
+
 			if (response.method === "connect"){
 				setclientId(response.clientId);
-				console.log('Client ID set successfully ' + response.clientId);
 			}
 
 			if (response.method === "create"){
@@ -138,14 +156,11 @@ export default function Tetris({ws}) {
 				setgameCreated(true);
 				setgameUrl(response.url);
 				sethost(response.game.host);
-				console.log('Game successfully created ' + response.game.id);
-				console.log('Game successfully created ' + response.url);
 			}
 
 			if (response.method === "join"){
 				setgameCreated(true);
 				setplayers(players => players + 1)
-				console.log('Player 2 Joined Game: ' + response.game.id);
 			}
 
 			if (response.method === "update"){
@@ -163,7 +178,7 @@ export default function Tetris({ws}) {
 							setmainStage(c.stage);
 						}
 					});
-				}
+				}				
 			}
 
 			if (response.method === "startGame" && clientId !== host.clientId){
@@ -177,14 +192,26 @@ export default function Tetris({ws}) {
 			}
 
 			if (response.method === "gameFull"){
-				console.log('Game is already full!');
 				setgameFull(true);
+				setGameOver(true);
+				setDropTime(null);
+			}
+
+			if (response.method === "gameEnded"){
+				setloser(response.loser)
+				setGameOver(true);
+				setDropTime(null);
+			}
+
+			if (response.method === "playerLeft"){
+				setplayerLeft(true);
+				setGameOver(true);
+				setDropTime(null);
 			}
 		};
-	}, [ws.onmessage, host, clientId, setStage, setDropTime, resetPlayer, setGameOver, setScore, setRows,setLevel])
+	}, [ws.onmessage, ws.onclose, host, clientId, setStage, setDropTime, resetPlayer, setGameOver, setScore, setRows,setLevel, ws])
 
 	useEffect(() => {
-		
 		const search = window.location.search;
 		const params = new URLSearchParams(search);
 		const id = params.get('game');
@@ -221,17 +248,14 @@ export default function Tetris({ws}) {
 	const copyToClipboard = (e) => {
 		textAreaRef.current.select();
 		document.execCommand('copy');
-		// This is just personal preference.
-		// I prefer to not show the whole text area selected.
-		e.target.focus();
 		setCopySuccess('Copied!');
 	};
 
 
 	return (
 		<Fragment>
-			{!gameCreated ?
-			<Home ws={ws} clientId={clientId} createGame={createGame} gameFull={gameFull}/> :
+			{!gameCreated || playerLeft ?
+			<Home ws={ws} clientId={clientId} createGame={createGame} gameFull={gameFull} playerLeft={playerLeft}/> :
 			<StyledTetrisWrapper role="button" tabIndex="0" onKeyDown={e => move(e)} onKeyUp={keyUp}>
 				<div className="nes-container is-rounded is-centered" style={{margin: "10px"}}>
 					<StyledTetris>
@@ -241,14 +265,17 @@ export default function Tetris({ws}) {
 						<div className="nes-container is-rounded is-centered">
 							<label htmlFor="name_field">Multiplayer Link</label>
 							<div className="nes-field is-inline" style={{margin: "10px"}}>
-								<input type="text" id="name_field"  ref={textAreaRef} className="nes-input" defaultValue={gameUrl}/>
+								<input type="text" id="name_field"  ref={textAreaRef} className="nes-input" style={{overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}} defaultValue={gameUrl}/>
 								<button type="button" className="nes-btn is-primary" onClick={copyToClipboard} >Copy</button> 
 							</div>
 							{copySuccess}
 						</div>}
 						<aside>
 							{gameOver ? (
-								<Display gameOver={gameOver} text="Game Over"/>
+								<Fragment>
+									<Display gameOver={gameOver} text="Game Over"/>
+									{clientId === loser ? "You Lose!" : "You Win!"}
+								</Fragment>
 								) : null
 							}
 								<div>
@@ -256,7 +283,7 @@ export default function Tetris({ws}) {
 									<Display text={`Rows: ${rows}`}/>
 									<Display text={`Level: ${level}`}/>
 								</div>
-							{clientId === host.clientId ? <StartButton callBack={()=>startGame(true)}/> : null}
+							{clientId === host.clientId ? <StartButton gameStarted={gameStarted} callBack={()=>startGame(true)}/> : null}
 						</aside>
 					</StyledTetris>
 				</div>
