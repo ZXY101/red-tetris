@@ -88,7 +88,7 @@ export default function Tetris({ws}) {
 	}
 
 	const dropPlayer = () => {
-		setDropTime(null);
+		setDropTime(1000);
 		playerFall(stage, player, checkCollision);
 		updatePlayerPos({x: 0, y: 0, collided: true})
 	}
@@ -114,6 +114,9 @@ export default function Tetris({ws}) {
 					break;
 				case 83:
 				case 40:
+					drop();
+					break;
+				case 32:
 					dropPlayer();
 					break;
 				case 69:

@@ -16,7 +16,7 @@ it("checks collisions", () => {
 		tetromino: TETROMINOS["L"].shape,
 		collided: false,
 	}
-	expect(checkCollision(player, stage, {x: 1, y: 1})).toEqual(false);
+	expect(checkCollision(player, stage, {x: 1, y: 1})).toBeUndefined();
 });
 
 it("returns a random tetrominos", () => {

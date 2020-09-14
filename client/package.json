@@ -39,5 +39,13 @@
   "devDependencies": {
     "jest-websocket-mock": "^2.1.0",
     "mock-socket": "^9.0.3"
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/*.js",
+      "src/components/*.js",
+      "!src/components/Tetris.js",
+      "!src/hooks/*.js"
+    ]
   }
 }
