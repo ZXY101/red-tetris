@@ -1,0 +1,24 @@
+{
+  "name": "red-tetris",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently --kill-others \"cd client && npm run start\" \"cd backend && npm run start\"",
+    "test": "cd client && npm run coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZXY101/red-tetris.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ZXY101/red-tetris/issues"
+  },
+  "homepage": "https://github.com/ZXY101/red-tetris#readme",
+  "dependencies": {
+    "concurrently": "^5.3.0"
+  }
+}

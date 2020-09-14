@@ -18,6 +18,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "coverage": "npm test -- --coverage --watchAll=false -u",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -33,6 +34,18 @@
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "jest-websocket-mock": "^2.1.0",
+    "mock-socket": "^9.0.3"
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/*.js",
+      "src/components/*.js",
+      "!src/components/Tetris.js",
+      "!src/hooks/*.js"
     ]
   }
 }

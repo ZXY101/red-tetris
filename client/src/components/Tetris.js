@@ -4,7 +4,6 @@ import {createStage, checkCollision} from '../helpers/gameHelpers'
 import {StyledTetrisWrapper} from './styles/StyledTetris'
 import {StyledTetris} from './styles/StyledTetris'
 
-import {createGame} from '../Actions/actions'
 import {useGameStatus} from '../hooks/useGameStatus'
 import {useInterval} from '../hooks/useInterval'
 import {usePlayer} from "../hooks/usePlayer"
@@ -89,7 +88,7 @@ export default function Tetris({ws}) {
 	}
 
 	const dropPlayer = () => {
-		setDropTime(null);
+		setDropTime(1000);
 		playerFall(stage, player, checkCollision);
 		updatePlayerPos({x: 0, y: 0, collided: true})
 	}
@@ -115,6 +114,9 @@ export default function Tetris({ws}) {
 					break;
 				case 83:
 				case 40:
+					drop();
+					break;
+				case 32:
 					dropPlayer();
 					break;
 				case 69:
@@ -218,15 +220,13 @@ export default function Tetris({ws}) {
 		setgameId(id);
 
 		if (id && clientId){
-			// ws.onopen = function() {
-				const payLoad = {
-					method: "join",
-					clientId: clientId,
-					gameId: id,
-					stage: createStage(),
-				};
-				ws.send(JSON.stringify(payLoad));
-			// }
+			const payLoad = {
+				method: "join",
+				clientId: clientId,
+				gameId: id,
+				stage: createStage(),
+			};
+			ws.send(JSON.stringify(payLoad));
 		}
 	}, [clientId, ws])
 
@@ -255,7 +255,7 @@ export default function Tetris({ws}) {
 	return (
 		<Fragment>
 			{!gameCreated || playerLeft ?
-			<Home ws={ws} clientId={clientId} createGame={createGame} gameFull={gameFull} playerLeft={playerLeft}/> :
+			<Home ws={ws} clientId={clientId} gameFull={gameFull} playerLeft={playerLeft}/> :
 			<StyledTetrisWrapper role="button" tabIndex="0" onKeyDown={e => move(e)} onKeyUp={keyUp}>
 				<div className="nes-container is-rounded is-centered" style={{margin: "10px"}}>
 					<StyledTetris>
