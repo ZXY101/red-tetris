@@ -1,7 +1,7 @@
 # red-tetris
 ## install
 - run `npm install`
-- run `npm install-all`
+- run `npm run install-all`
 
 ## play
 - run `npm start`
